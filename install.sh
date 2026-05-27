@@ -1,29 +1,60 @@
 #!/usr/bin/env bash
-# install.sh — packages compact/ into skills/compact.skill
+# install.sh — installs compact skill into OpenCode (+ Claude Code / Codex) skill paths
 
 set -euo pipefail
 
 # ── config ────────────────────────────────────────────────────────────────────
 SOURCE_DIR="compact"
-OUTPUT_DIR="skills"
 SKILL_NAME="compact"
-SKILL_FILE="${OUTPUT_DIR}/${SKILL_NAME}.skill"
-REQUIRED_FILES=("SKILLS.md" "references")
+REQUIRED_FILES=("SKILL.md" "references")
+
+# install targets — all paths OpenCode natively scans
+PROJECT_TARGETS=(
+  ".opencode/skills"
+  ".claude/skills"
+  ".agents/skills"
+)
+GLOBAL_TARGETS=(
+  "$HOME/.config/opencode/skills"
+  "$HOME/.claude/skills"
+  "$HOME/.agents/skills"
+)
 
 # ── colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 DIM='\033[2m'
 RESET='\033[0m'
 
-pass() { echo -e "${GREEN}  ok${RESET}  $1"; }
-fail() { echo -e "${RED}  !!${RESET}  $1"; exit 1; }
-info() { echo -e "${DIM}      $1${RESET}"; }
+pass()  { echo -e "${GREEN}  ok${RESET}  $1"; }
+fail()  { echo -e "${RED}  !!${RESET}  $1"; exit 1; }
+info()  { echo -e "${DIM}      $1${RESET}"; }
+warn()  { echo -e "${YELLOW}  --${RESET}  $1"; }
+skip()  { echo -e "${DIM}  --  skipped: $1${RESET}"; }
+
+# ── args ──────────────────────────────────────────────────────────────────────
+MODE="${1:-project}"   # "project" | "global" | "all"
+
+usage() {
+  echo ""
+  echo "  usage: ./install.sh [project|global|all]"
+  echo ""
+  echo "    project  — installs to .opencode/skills/, .claude/skills/, .agents/skills/  (default)"
+  echo "    global   — installs to ~/.config/opencode/skills/, ~/.claude/skills/, ~/.agents/skills/"
+  echo "    all      — installs to both project and global paths"
+  echo ""
+  exit 0
+}
+
+[[ "$MODE" == "--help" || "$MODE" == "-h" ]] && usage
+[[ "$MODE" =~ ^(project|global|all)$ ]] || fail "unknown mode '$MODE' — run ./install.sh --help"
 
 # ── header ────────────────────────────────────────────────────────────────────
 echo ""
-echo "  compact — skill installer"
+echo "  compact — OpenCode skill installer"
 echo "  ─────────────────────────────────────────"
+echo "  mode: ${MODE}"
 
 # ── validate source ───────────────────────────────────────────────────────────
 echo ""
@@ -35,42 +66,67 @@ echo "  validating source..."
 for item in "${REQUIRED_FILES[@]}"; do
   [[ -e "${SOURCE_DIR}/${item}" ]] \
     && pass "${SOURCE_DIR}/${item}" \
-    || fail "missing: ${SOURCE_DIR}/${item}"
+    || fail "missing required file: ${SOURCE_DIR}/${item}"
 done
 
-# ── prepare output dir ────────────────────────────────────────────────────────
-echo ""
-echo "  preparing output..."
+# ── install fn ────────────────────────────────────────────────────────────────
+install_to() {
+  local base="$1"
+  local dest="${base}/${SKILL_NAME}"
 
-mkdir -p "$OUTPUT_DIR"
-pass "skills/ ready"
+  mkdir -p "$dest"
 
-# ── package ───────────────────────────────────────────────────────────────────
-echo ""
-echo "  packaging..."
+  # copy SKILL.md
+  cp "${SOURCE_DIR}/SKILL.md" "${dest}/SKILL.md"
 
-# remove stale build
-[[ -f "$SKILL_FILE" ]] && rm "$SKILL_FILE" && info "removed old ${SKILL_FILE}"
+  # copy references/ if present
+  if [[ -d "${SOURCE_DIR}/references" ]]; then
+    cp -r "${SOURCE_DIR}/references" "${dest}/references"
+  fi
 
-# zip: contents of compact/ stored as compact/<file> inside the archive
-(cd "$(dirname "$SOURCE_DIR")" && zip -rq "$OLDPWD/${SKILL_FILE}" "$SKILL_NAME/")
+  pass "${dest}/"
+  info "SKILL.md + references/ → ${dest}"
+}
 
-SIZE=$(du -sh "$SKILL_FILE" | cut -f1)
-FILE_COUNT=$(unzip -l "$SKILL_FILE" | tail -1 | awk '{print $2}')
-pass "built ${SKILL_FILE} (${SIZE}, ${FILE_COUNT} files)"
+# ── project install ───────────────────────────────────────────────────────────
+if [[ "$MODE" == "project" || "$MODE" == "all" ]]; then
+  echo ""
+  echo "  installing (project-local)..."
+  for target in "${PROJECT_TARGETS[@]}"; do
+    install_to "$target"
+  done
+fi
+
+# ── global install ────────────────────────────────────────────────────────────
+if [[ "$MODE" == "global" || "$MODE" == "all" ]]; then
+  echo ""
+  echo "  installing (global)..."
+  for target in "${GLOBAL_TARGETS[@]}"; do
+    install_to "$target"
+  done
+fi
 
 # ── verify ────────────────────────────────────────────────────────────────────
 echo ""
-echo "  verifying archive..."
+echo "  verifying..."
 
-while IFS= read -r entry; do
-  info "$entry"
-done < <(unzip -l "$SKILL_FILE" | awk 'NR>3 && /[^-]/{print $NF}' | head -20)
+verify_path() {
+  local dest="${1}/${SKILL_NAME}/SKILL.md"
+  [[ -f "$dest" ]] && pass "$dest" || warn "not found: $dest"
+}
 
-pass "archive intact"
+if [[ "$MODE" == "project" || "$MODE" == "all" ]]; then
+  for target in "${PROJECT_TARGETS[@]}"; do verify_path "$target"; done
+fi
+if [[ "$MODE" == "global" || "$MODE" == "all" ]]; then
+  for target in "${GLOBAL_TARGETS[@]}"; do verify_path "$target"; done
+fi
 
 # ── done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo "  ─────────────────────────────────────────"
-echo -e "  ${GREEN}installed → ${SKILL_FILE}${RESET}"
+echo -e "  ${GREEN}done.${RESET} restart OpenCode to load the skill."
+echo ""
+echo "  verify inside OpenCode:"
+echo '    > list installed skills'
 echo ""
