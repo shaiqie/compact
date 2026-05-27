@@ -260,14 +260,29 @@ Error format         "⚠ [ERROR TYPE]: <1-line cause> → <1-line fix>"
 
 ---
 
+## Repository Structure
+
+```
+compact/
+├── README.md
+└── skills/
+    ├── SKILL.md
+    └── references/
+        ├── ast-trimming.md
+        ├── llmlingua-usage.md
+        └── batch-api.md
+```
+
+---
+
 ## Reference
 
 | File | Contents |
 |------|----------|
-| `SKILL.md` | Core instructions: all three layers, symbol vocabulary, behavioral rules |
-| `references/ast-trimming.md` | Tree-sitter patterns for Python, TypeScript, Go, Rust; threshold guide |
-| `references/llmlingua-usage.md` | LLMLingua-2 integration, rate calibration, agentic loop pattern, failure modes |
-| `references/batch-api.md` | Full Anthropic + OpenAI batch API implementations, prompt caching setup, combined pipeline |
+| `skills/SKILL.md` | Core instructions: all three layers, symbol vocabulary, behavioral rules |
+| `skills/references/ast-trimming.md` | Tree-sitter patterns for Python, TypeScript, Go, Rust; threshold guide |
+| `skills/references/llmlingua-usage.md` | LLMLingua-2 integration, rate calibration, agentic loop pattern, failure modes |
+| `skills/references/batch-api.md` | Full Anthropic + OpenAI batch API implementations, prompt caching setup, combined pipeline |
 
 ---
 
